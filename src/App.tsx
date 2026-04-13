@@ -2,9 +2,10 @@ import { useState, useMemo } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { DataTable } from './components/DataTable';
 import { SchemaMapping } from './components/SchemaMapping';
+import { CleaningPreferences } from './components/CleaningPreferences';
 import { MetricsDashboard } from './components/MetricsDashboard';
-import { processDataset } from './lib/Cleaner';
 import { inferSchema } from './lib/SchemaInferencer';
+import type { CleaningConfig } from './lib/CleaningEngineConfig';
 import type { FieldType } from './lib/SchemaInferencer';
 import type { ProcessedRow } from './lib/Cleaner';
 import { BarChart3, Download, RefreshCcw, FileWarning, Copy, CheckCircle, TableProperties, PieChart as PieChartIcon } from 'lucide-react';
@@ -14,6 +15,7 @@ function App() {
   const [rawData, setRawData] = useState<any[] | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [schemaMap, setSchemaMap] = useState<Record<string, FieldType>>({});
+  const [schemaConfirmed, setSchemaConfirmed] = useState(false);
   const [processedData, setProcessedData] = useState<ProcessedRow[] | null>(null);
   const [activeTab, setActiveTab] = useState<'DATA' | 'METRICS'>('DATA');
 
@@ -26,11 +28,12 @@ function App() {
   };
 
   const handleConfirmMapping = () => {
-    if (rawData) {
-      const processed = processDataset(rawData, schemaMap);
+    setSchemaConfirmed(true);
+  };
+  
+  const handleExecutePipeline = (_config: CleaningConfig, processed: ProcessedRow[]) => {
       setProcessedData(processed);
       setActiveTab('DATA');
-    }
   };
 
   const activeColumns = headers.filter(h => schemaMap[h] !== 'IGNORE');
@@ -66,6 +69,7 @@ function App() {
     setProcessedData(null);
     setHeaders([]);
     setSchemaMap({});
+    setSchemaConfirmed(false);
     setActiveTab('DATA');
   };
 
@@ -114,12 +118,18 @@ function App() {
             </div>
             <FileUpload onUpload={handleUpload} />
           </div>
-        ) : !processedData ? (
+        ) : !schemaConfirmed ? (
           <SchemaMapping 
              headers={headers} 
              schemaMap={schemaMap} 
              setSchemaMap={setSchemaMap} 
              onConfirm={handleConfirmMapping} 
+          />
+        ) : !processedData ? (
+          <CleaningPreferences 
+             rawData={rawData} 
+             schemaMap={schemaMap} 
+             onConfirm={handleExecutePipeline} 
           />
         ) : (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
