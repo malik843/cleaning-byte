@@ -4,7 +4,7 @@ export const OpenBqResultSchema = z.object({
   score: z.number().min(0).max(100),
   modality: z.string().optional(),
   warnings: z.array(z.string()).optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 }).passthrough();
 
 export type OpenBqResult = z.infer<typeof OpenBqResultSchema>;
@@ -15,10 +15,11 @@ export type OpenBqResult = z.infer<typeof OpenBqResultSchema>;
  */
 export const assessBiometricQuality = async (imageFile: File | Blob, modality: string): Promise<OpenBqResult> => {
   const formData = new FormData();
-  formData.append('image', imageFile);
+  formData.append('file', imageFile); 
   formData.append('modality', modality);
-
-  const response = await fetch('http://localhost:8080/assess', {
+  
+  // Route through Vite's dev proxy — same origin, zero CORS issues
+  const response = await fetch('/api/assess', {
     method: 'POST',
     body: formData,
   });

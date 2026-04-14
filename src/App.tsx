@@ -4,20 +4,26 @@ import { DataTable } from './components/DataTable';
 import { SchemaMapping } from './components/SchemaMapping';
 import { CleaningPreferences } from './components/CleaningPreferences';
 import { MetricsDashboard } from './components/MetricsDashboard';
+import { BiometricUpload } from './components/BiometricUpload';
+import { BiometricDashboard } from './components/BiometricDashboard';
 import { inferSchema } from './lib/SchemaInferencer';
 import type { CleaningConfig } from './lib/CleaningEngineConfig';
 import type { FieldType } from './lib/SchemaInferencer';
 import type { ProcessedRow } from './lib/Cleaner';
-import { BarChart3, Download, RefreshCcw, FileWarning, Copy, CheckCircle, TableProperties, PieChart as PieChartIcon } from 'lucide-react';
+import { BarChart3, Download, RefreshCcw, FileWarning, Copy, CheckCircle, TableProperties, PieChart as PieChartIcon, Fingerprint, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 function App() {
+  const [appMode, setAppMode] = useState<'SELECT' | 'DATASET' | 'BIOMETRIC'>('SELECT');
+  
   const [rawData, setRawData] = useState<any[] | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [schemaMap, setSchemaMap] = useState<Record<string, FieldType>>({});
   const [schemaConfirmed, setSchemaConfirmed] = useState(false);
   const [processedData, setProcessedData] = useState<ProcessedRow[] | null>(null);
   const [activeTab, setActiveTab] = useState<'DATA' | 'METRICS'>('DATA');
+
+  const [rawBiometrics, setRawBiometrics] = useState<File[] | null>(null);
 
   const handleUpload = (data: any[]) => {
     if (!data || data.length === 0) return;
@@ -71,6 +77,8 @@ function App() {
     setSchemaMap({});
     setSchemaConfirmed(false);
     setActiveTab('DATA');
+    setRawBiometrics(null);
+    setAppMode('SELECT');
   };
 
   return (
@@ -81,9 +89,9 @@ function App() {
             <div className="p-2 bg-indigo-600 rounded-lg shadow-sm">
                <RefreshCcw className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-extrabold tracking-tight text-slate-900">CleaningByte</h1>
+            <h1 className="text-xl font-extrabold tracking-tight text-slate-900 cursor-pointer" onClick={reset}>CleaningByte</h1>
           </div>
-          {rawData && (
+          {(rawData || rawBiometrics || appMode !== 'SELECT') && (
             <div className="flex space-x-3">
               <button 
                 onClick={reset}
@@ -106,32 +114,56 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-6 py-10">
-        {!rawData ? (
-          <div className="mt-16 animate-in fade-in zoom-in-95 duration-500">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">
-                Any Data. Instantly Clean.
-              </h2>
-              <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed">
-                Upload ANY dataset. We heuristically discover the columns, let you verify the mapped standardizations, and perform instant automated de-duplication and normalization.
-              </p>
+        {appMode === 'SELECT' && (
+           <div className="mt-16 animate-in fade-in zoom-in-95 duration-500">
+             <div className="text-center mb-12">
+               <h2 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-6 tracking-tight">
+                 Any Data. Instantly Clean.
+               </h2>
+               <p className="text-lg text-slate-500 max-w-2xl mx-auto leading-relaxed">
+                 Seamlessly standardize tabular CRM arrays, or batch-assess native OS biometric fingerprint images. Select your module to initiate the pipeline.
+               </p>
+             </div>
+             
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                 <div onClick={() => setAppMode('DATASET')} className="bg-white border-2 border-slate-200 hover:border-indigo-400 p-8 rounded-3xl cursor-pointer shadow-sm hover:shadow-lg transition-all group">
+                     <div className="h-16 w-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-6 border border-indigo-100 group-hover:bg-indigo-600 transition-colors">
+                         <FileSpreadsheet className="h-8 w-8 text-indigo-500 group-hover:text-white transition-colors" />
+                     </div>
+                     <h3 className="text-2xl font-bold text-slate-800 mb-3">Tabular Dataset Pipeline</h3>
+                     <p className="text-slate-500">Heuristic schema inference, algorithmic deduplication, and customizable rules engine for .csv and .xlsx architectures.</p>
+                 </div>
+                 
+                 <div onClick={() => setAppMode('BIOMETRIC')} className="bg-white border-2 border-slate-200 hover:border-slate-800 p-8 rounded-3xl cursor-pointer shadow-sm hover:shadow-lg transition-all group">
+                     <div className="h-16 w-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-6 border border-slate-200 group-hover:bg-slate-900 transition-colors">
+                         <Fingerprint className="h-8 w-8 text-slate-600 group-hover:text-white transition-colors" />
+                     </div>
+                     <h3 className="text-2xl font-bold text-slate-800 mb-3">Batch Biometric Intake</h3>
+                     <p className="text-slate-500">Natively assess massive directories of raw OS imagery utilizing an independent Blackbox Docker connection.</p>
+                 </div>
+             </div>
+           </div>
+        )}
+
+        {appMode === 'DATASET' && (
+          !rawData ? (
+            <div className="mt-16 animate-in fade-in zoom-in-95 duration-500">
+               <FileUpload onUpload={handleUpload} />
             </div>
-            <FileUpload onUpload={handleUpload} />
-          </div>
-        ) : !schemaConfirmed ? (
-          <SchemaMapping 
-             headers={headers} 
-             schemaMap={schemaMap} 
-             setSchemaMap={setSchemaMap} 
-             onConfirm={handleConfirmMapping} 
-          />
-        ) : !processedData ? (
-          <CleaningPreferences 
-             rawData={rawData} 
-             schemaMap={schemaMap} 
-             onConfirm={handleExecutePipeline} 
-          />
-        ) : (
+          ) : !schemaConfirmed ? (
+            <SchemaMapping 
+               headers={headers} 
+               schemaMap={schemaMap} 
+               setSchemaMap={setSchemaMap} 
+               onConfirm={handleConfirmMapping} 
+            />
+          ) : !processedData ? (
+            <CleaningPreferences 
+               rawData={rawData} 
+               schemaMap={schemaMap} 
+               onConfirm={handleExecutePipeline} 
+            />
+          ) : (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Global Stats Bar */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -168,6 +200,17 @@ function App() {
               </div>
             )}
           </div>
+          )
+        )}
+
+        {appMode === 'BIOMETRIC' && (
+            !rawBiometrics ? (
+              <div className="mt-16 animate-in fade-in zoom-in-95 duration-300">
+                  <BiometricUpload onUpload={setRawBiometrics} />
+              </div>
+            ) : (
+              <BiometricDashboard files={rawBiometrics} />
+            )
         )}
       </main>
     </div>
